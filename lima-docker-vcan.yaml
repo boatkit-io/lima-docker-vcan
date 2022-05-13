@@ -1,0 +1,87 @@
+images:
+  # Try to use release-yyyyMMdd image if available. Note that release-yyyyMMdd will be removed after several months.
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20220513/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+    digest: "sha256:d04b2cccc6445459c73dfbdd50a3330405ebfa124ef3bb1230c2997dded7d6fb"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20220513/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+    digest: "sha256:2c833d862b2d83e2018e7d2d61a221f1be6bf1167e308c38d57a9642ed8dda35"
+# containerd is managed by Docker, not by Lima, so the values are set to false here.
+containerd:
+  system: false
+  user: false
+provision:
+  # Install Docker in rootless mode
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      command -v docker >/dev/null 2>&1 && exit 0
+      export DEBIAN_FRONTEND=noninteractive
+      curl -fsSL https://get.docker.com | sh
+      # Disable root docker and install rootless dependencies
+      systemctl disable --now docker
+      apt-get install -y uidmap dbus-user-session
+  # Start docker in rootless mode
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      systemctl --user start dbus
+      dockerd-rootless-setuptool.sh install
+      docker context use rootless
+  # Install the vcan kernel module and create some default device(s)
+  - script: |-
+      #!/bin/bash
+      set -eux -o pipefail
+      DEBIAN_FRONTEND=noninteractive apt-get install -y linux-modules-extra-$(uname -r)
+      if ! grep "vcan" /etc/modules; then
+        echo "vcan" >>/etc/modules
+      fi
+      modprobe vcan
+
+      # Setup the vcan devices
+      if [[ ! -e /etc/systemd/network/vcan0.netdev ]]; then
+        cat >/etc/systemd/network/vcan0.netdev <<EOF
+        [NetDev]
+        Name=vcan0
+        Kind=vcan
+
+        [vcan]
+      EOF
+      networkctl reload
+      networkctl up vcan0
+      fi
+      if [[ ! -e /etc/systemd/network/vcan1.netdev ]]; then
+        cat >/etc/systemd/network/vcan1.netdev <<EOF
+        [NetDev]
+        Name=vcan1
+        Kind=vcan
+
+        [vcan]
+      EOF
+      networkctl reload
+      networkctl up vcan1
+      fi
+
+  # Tell the probe we're done.
+  - script: |
+      touch /tmp/finished
+probes:
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until [[ -e /tmp/finished ]]; do sleep 3; done"; then
+        echo >&2 "not finished"
+        exit 1
+      fi
+    hint: See "/var/log/cloud-init-output.log". in the guest
+portForwards:
+  - guestSocket: "/run/user/{{.UID}}/docker.sock"
+    hostSocket: "{{.Dir}}/sock/docker.sock"
+message: |
+  To run `docker` on the host (assumes docker-cli is installed), run the following commands:
+  ------
+  docker context create lima --docker "host=unix://{{.Dir}}/sock/docker.sock"
+  docker context use lima
+  docker run hello-world
+  ------
