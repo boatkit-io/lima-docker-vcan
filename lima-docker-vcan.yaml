@@ -1,11 +1,11 @@
 images:
   # Try to use release-yyyyMMdd image if available. Note that release-yyyyMMdd will be removed after several months.
-  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20220513/ubuntu-22.04-server-cloudimg-amd64.img"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20220622/ubuntu-22.04-server-cloudimg-amd64.img"
     arch: "x86_64"
-    digest: "sha256:d04b2cccc6445459c73dfbdd50a3330405ebfa124ef3bb1230c2997dded7d6fb"
-  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20220513/ubuntu-22.04-server-cloudimg-arm64.img"
+    digest: "sha256:d90ea67847896d30ce3125eedda920d4692c0c61b5e4361f2d16d7289ccbecf9"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release-20220622/ubuntu-22.04-server-cloudimg-arm64.img"
     arch: "aarch64"
-    digest: "sha256:2c833d862b2d83e2018e7d2d61a221f1be6bf1167e308c38d57a9642ed8dda35"
+    digest: "sha256:96ec11a816fefd2647140eec50d70a7e865f24c3efb02dd8ca4759ad8b709aeb"
 # containerd is managed by Docker, not by Lima, so the values are set to false here.
 containerd:
   system: false
